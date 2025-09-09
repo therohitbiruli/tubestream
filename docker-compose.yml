@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "mysql://root:YOUR_SECURE_PASSWORD@db:3306/tubestream"
+      JWT_SECRET: "YOUR_SUPER_SECRET_JWT_STRING"
+      BUNNY_STORAGE_ZONE_NAME: "tubestream-videos"
+      BUNNY_STORAGE_API_KEY: "YOUR_BUNNY_API_KEY"
+      BUNNY_CDN_HOSTNAME: "tubestream-cdn.b-cdn.net"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: "YOUR_SECURE_PASSWORD"
+      MYSQL_DATABASE: "tubestream"
+    # ===================================================================
+    # THIS IS THE MISSING SECTION THAT YOU MUST ADD
+    ports:
+      - "3306:3306"
+    # ===================================================================
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
