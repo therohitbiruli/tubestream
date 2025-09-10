@@ -2,43 +2,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// GET video by ID
+const CDN_BASE = "https://tubestream01.b-cdn.net"; // ✅ your Bunny CDN base
+
+// -------------------- GET video by ID --------------------
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params; // <- await is required in Next.js 15
+  const { id } = await context.params;
 
   try {
     const video = await prisma.video.findUnique({
-      where: { id: Number(id) }, // id must be a number if your DB uses int
+      where: { id: Number(id) },
     });
 
     if (!video) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
-    return NextResponse.json(video);
+
+    // ✅ Normalize videoUrl before sending to frontend
+    const normalizedVideo = {
+      ...video,
+      videoUrl: video.videoUrl.startsWith("http")
+        ? video.videoUrl.replace(/https?:\/\/[^/]+/, CDN_BASE) // replace old domain
+        : `${CDN_BASE}/${video.videoUrl}`, // prepend if only filename is stored
+    };
+
+    return NextResponse.json(normalizedVideo);
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to fetch video' }, { status: 500 });
   }
 }
 
-// Update video
+// -------------------- UPDATE video --------------------
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const data = await request.json();
 
   try {
+    // ✅ Ensure we only store filename, not full URL
+    if (data.videoUrl) {
+      data.videoUrl = data.videoUrl.replace(/https?:\/\/[^/]+\//, ""); 
+    }
+
     const updatedVideo = await prisma.video.update({
       where: { id: Number(id) },
       data,
     });
-    return NextResponse.json(updatedVideo);
+
+    // ✅ Normalize response before returning
+    const normalizedVideo = {
+      ...updatedVideo,
+      videoUrl: updatedVideo.videoUrl.startsWith("http")
+        ? updatedVideo.videoUrl.replace(/https?:\/\/[^/]+/, CDN_BASE)
+        : `${CDN_BASE}/${updatedVideo.videoUrl}`,
+    };
+
+    return NextResponse.json(normalizedVideo);
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to update video' }, { status: 500 });
   }
 }
 
-// Delete video
+// -------------------- DELETE video --------------------
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
